@@ -1,0 +1,22 @@
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+
+}
+
+td {
+  text-align: center;
+  width: 25px;
+  height: 25px;
+
+}
+
+td.W {
+   background-color:green;
+
+}
+
+td.L {
+ background-color:red;
+}
