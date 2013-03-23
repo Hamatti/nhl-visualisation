@@ -4,7 +4,7 @@ from collections import defaultdict
 import os, argparse
 
 baseurl = "http://www.nhl.com/ice/gamestats.htm?fetchKey=20132ALLSATAll&viewName=summary&sort=gameDate&pg="
-PAGENUMBER = 10
+PAGENUMBER = 16
 
 def readData(loadFromWeb=False):
     teams = defaultdict(list)
@@ -86,6 +86,9 @@ def writeHTML(teams, filename):
             fname.write('</tr>\n')
         fname.write('</table>\n')
 
+def rev(teams):
+    for team in teams.keys():
+        teams[team].reverse()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Load and save NHL data")
@@ -95,6 +98,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
     teams = readData(args.web)
     transformed = transform(teams)
+    rev(transformed)
     if args.html:
         writeHTML(transformed, 'nhl-temp.html')
         print "HTML written"
