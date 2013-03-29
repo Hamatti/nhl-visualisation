@@ -9,7 +9,7 @@ td {
   text-align: center;
   width: 25px;
   height: 25px;
-
+  cursor: pointer;
 }
 
 td.W {
@@ -19,4 +19,18 @@ td.W {
 
 td.L {
  background-color:red;
+}
+
+img.logo {
+    width: 75px;
+    height: 50px;
+}
+
+span.new {
+    color: red;
+    font-weight: bold;
+}
+
+h2 {
+    font-size: small;
 }
