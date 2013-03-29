@@ -1,94 +1,97 @@
 import urllib, json
-from bs4 import BeautifulSoup as bs
+from bs4 import BeautifulSoup
 from collections import defaultdict
 import os, argparse
 
-baseurl = "http://www.nhl.com/ice/gamestats.htm?fetchKey=20132ALLSATAll&viewName=summary&sort=gameDate&pg="
-PAGENUMBER = 16
+BASEURL = "http://www.nhl.com/ice/gamestats.htm?fetchKey=20132ALLSATAll&viewName=summary&sort=gameDate&pg="
+PAGENUMBER = 17
 
-def readData(loadFromWeb=False):
-    teams = defaultdict(list)
-    if not loadFromWeb:
-        with open('nhl.json') as jsonfile:
-            teams = json.load(jsonfile)
-    else:
-        for i in range (1,PAGENUMBER+1):
-            pageurl = "%s%s" % (baseurl, i)
-            soup = bs(urllib.urlopen(pageurl))
-            all_tables = soup.findAll('table', { 'class' : 'data stats' })[0].find('tbody')
-            trs = all_tables.findAll('tr')
-            for tr in trs:
-                team_success = {}
-                tds = tr.findAll('td')
-                home_team = tds[1].string
-                away_team = tds[3].string
-                home_goals = tds[2].string
-                away_goals = tds[4].string
-                home_win = int(home_goals) > int(away_goals)
-                away_win = not home_win
-                if home_win:
-                    teams[home_team].append('W')
-                    teams[away_team].append('L')
-                else:
-                    teams[home_team].append('L')
-                    teams[away_team].append('W')            
-    print max([len(matches) for team, matches in teams.items()])
-    return teams            
+def read_data(load_from_web = False):
+ 	teams = defaultdict(lambda: [[],[]])
+	if not load_from_web:
+		with open('nhl.json') as jsonfile:
+			teams = json.load(jsonfile)
+	else:
+		for i in range(1, PAGENUMBER + 1):
+			soup = get_soup("%s%s" % (BASEURL, i))
+			tables = soup.findAll('table', { 'class': 'data stats' })[0].find('tbody')
+			rows = tables.findAll('tr')
+			for row in rows:
+				match_url = get_match_url(row)
+				cells = row.findAll('td')
+				home_team = cells[1].string
+				away_team = cells[3].string
+				home_goals = cells[2].string
+				away_goals = cells[4].string
 
-def printData(teams):
-    for team in sorted(teams.keys()):
-        print team, 
-        print teams[team],
-        print len(teams[team])
-        
+				if int(home_goals) > int(away_goals):
+					teams[home_team][0].append('W')
+					teams[away_team][0].append('L')
+				else:
+					teams[away_team][0].append('W')
+					teams[home_team][0].append('L')
+
+				teams[home_team][1].append(match_url)
+				teams[away_team][1].append(match_url)
+	return teams
+
+def get_soup(url):
+	return BeautifulSoup(urllib.urlopen(url))
+
+def get_match_url(row):
+	for url in row.findAll('a'):
+		if 'www.nhl.com' in url['href']:
+			return url['href']
+
+def print_teams(teams):
+	for team in sorted(teams.keys()):
+		print team,
+		print teams[team][0]
+
 def transform(teams):
-    transformed = defaultdict(list)
-    for team in teams.keys():
-        games = teams[team]
-        for i in range(0, len(games)-1):
-            if games[i] == games[i+1] or games[i] == games[i-1]:
-                if games[i] == 'W':
-                    transformed[team].append('W')
-                elif games[i] == 'L':
-                    transformed[team].append('L')
-            else:
-                transformed[team].append('')
-        # Last game
-        if games[-2] == games[-1]:
-            if (games[-1] == 'W'):
-                transformed[team].append('W')
-            else:
-                transformed[team].append('L')
-        else:
-            transformed[team].append('')
-    return transformed
+	transformed = defaultdict(lambda: [[],[]])
+	for team in teams.keys():
+		games = teams[team][0]
+		for i in range(0, len(games)-1):
+			if games[i] == games[i+1] or games[i] == games[i-1]:
+				transformed[team][0].append(games[i])
+			else:
+				transformed[team][0].append('')
+		# Don't forget the last game
+		if games[-2] == games[-1]:
+			transformed[team][0].append(games[-1])
+		else:
+			transformed[team][0].append('')
+		transformed[team][1] = teams[team][1]
+	return transformed
 
+def write_json(teams, filename):
+	with open(filename, 'wb') as fname:
+		json.dump(teams, fname)
 
-def writeJSON(teams, filename):
-    with open(filename, 'wb') as fname:
-        json.dump(teams, fname)
+def write_html(teams, filename):
+	with open(filename, 'wb') as fname:
+		fname.write('<table class="winningstreak">\n')
+		fname.write('<tr><td>Team</td>')
+		for i in range(1, max([len(matches[0]) for team, matches in teams.iteritems()])+1):
+			fname.write('<td>%d</td>' % i)
+		fname.write('</tr>\n')
+		for team in sorted(teams.keys()):
+			imagename = team.lower().replace(' ', '')
+			imagename = "%s.png" % imagename
+			fname.write('<tr>\n')
+			fname.write('<td><img src="./logos/%s" class="logo" /> </td>' % imagename)
+			wins_and_losses = teams[team][0]
+			match_urls = teams[team][1]
+			for i in range(0, len(wins_and_losses)):
+				fname.write('<td class="%s" onClick="window.open(\'%s\');"></td>' % (wins_and_losses[i], match_urls[i]))
+			fname.write('</tr>\n')
+		fname.write('</table>\n')
 
-def writeHTML(teams, filename):
-    with open(filename, 'wb') as fname:
-        fname.write('<table class="winningstreak">\n')
-        fname.write('<tr><td>Team</td>')
-        for i in range(1, max([len(matches) for team, matches in teams.iteritems()])+1): 
-            fname.write('<td>%d</td>' % i)
-        fname.write('</tr>')
-        for team in sorted(teams.keys()):
-            imagename = team.lower()
-            imagename = imagename.replace(' ', '')
-            imagename = "%s.png" % imagename
-            fname.write('<tr>')
-            fname.write('<td><img src="./logos/%s" width="75px" height="50px"></td>' % imagename)
-            for element in teams[team]:
-                fname.write('<td class="%s"></td>' % element)
-            fname.write('</tr>\n')
-        fname.write('</table>\n')
-
-def rev(teams):
-    for team in teams.keys():
-        teams[team].reverse()
+def reverse_lists(teams):
+	for team in teams.keys():
+		teams[team][0].reverse()
+		teams[team][1].reverse()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Load and save NHL data")
@@ -96,12 +99,13 @@ if __name__ == '__main__':
     parser.add_argument('--json', action='store_true', dest='json', default=False)
     parser.add_argument('--html', action='store_true', dest='html', default=False)
     args = parser.parse_args()
-    teams = readData(args.web)
+    teams = read_data(args.web)
     transformed = transform(teams)
-    rev(transformed)
+    reverse_lists(transformed)
     if args.html:
-        writeHTML(transformed, 'nhl-temp.html')
+        write_html(transformed, 'nhl-temp.html')
         print "HTML written"
     if args.json:
-        writeJSON(transformed, 'nhl.json')
+        write_json(transformed, 'nhl.json')
         print "JSON written"
+
