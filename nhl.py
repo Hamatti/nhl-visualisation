@@ -1,12 +1,14 @@
+#!/usr/bin/python
 import urllib, json
 from bs4 import BeautifulSoup
 from collections import defaultdict
 import os, argparse
 
 BASEURL = "http://www.nhl.com/ice/gamestats.htm?fetchKey=20132ALLSATAll&viewName=summary&sort=gameDate&pg="
-PAGENUMBER = 17
+PAGENUMBER = 20
 
 def read_data(load_from_web = False):
+	''' Parses through nhl.com data or json data for matches and match report urls '''
  	teams = defaultdict(lambda: [[],[]])
 	if not load_from_web:
 		with open('nhl.json') as jsonfile:
@@ -36,19 +38,23 @@ def read_data(load_from_web = False):
 	return teams
 
 def get_soup(url):
+	''' Returns BeautifulSoup object for given url '''
 	return BeautifulSoup(urllib.urlopen(url))
 
 def get_match_url(row):
+	''' Extracts correct url from <td>-BeautifulSoup-object '''
 	for url in row.findAll('a'):
 		if 'www.nhl.com' in url['href']:
 			return url['href']
 
 def print_teams(teams):
+	''' Prints teams in nice way '''
 	for team in sorted(teams.keys()):
 		print team,
 		print teams[team][0]
 
 def transform(teams):
+	''' Transforms WLLWWLLWLW => _LLWWLL___ '''
 	transformed = defaultdict(lambda: [[],[]])
 	for team in teams.keys():
 		games = teams[team][0]
@@ -66,10 +72,12 @@ def transform(teams):
 	return transformed
 
 def write_json(teams, filename):
+	''' Writes teams to json file '''
 	with open(filename, 'wb') as fname:
 		json.dump(teams, fname)
 
 def write_html(teams, filename):
+	''' Writes nice html table for streaks '''
 	with open(filename, 'wb') as fname:
 		fname.write('<table class="winningstreak">\n')
 		fname.write('<tr><td>Team</td>')
@@ -89,6 +97,7 @@ def write_html(teams, filename):
 		fname.write('</table>\n')
 
 def reverse_lists(teams):
+	''' Reverses lists '''
 	for team in teams.keys():
 		teams[team][0].reverse()
 		teams[team][1].reverse()
